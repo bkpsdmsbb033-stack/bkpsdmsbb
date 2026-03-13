@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AI Face Verify Pro - Android DB</title>
+    <script defer src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
+    <style>
+        :root { --primary: #2196F3; --success: #4CAF50; --dark: #121212; --accent: #FFC107; --danger: #f44336; }
+        body { font-family: 'Roboto', sans-serif; margin: 0; background: var(--dark); color: white; display: flex; flex-direction: column; align-items: center; overflow-x: hidden; }
+        
+        /* Camera UI */
+        #camera-container { position: relative; width: 100vw; height: 55vh; background: #000; border-bottom: 2px solid var(--primary); }
+        video, canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
+
+        /* Controls UI */
+        #controls { width: 100%; padding: 15px; box-sizing: border-box; background: #1e1e1e; border-radius: 20px 20px 0 0; margin-top: -20px; z-index: 10; flex: 1; overflow-y: auto; pb: 100px; }
+        .section-title { font-size: 11px; color: var(--accent); font-weight: bold; margin: 10px 0 5px 0; text-transform: uppercase; letter-spacing: 1px; }
+        
+        .info-card { background: #2d2d2d; padding: 10px; border-radius: 10px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #444; }
+        .info-card span { font-weight: bold; color: var(--success); font-size: 1.2em; }
+        #locationText { font-size: 10px; color: #aaa; text-align: right; }
+
+        input { width: 100%; background: #333; border: 1px solid #444; color: white; padding: 12px; border-radius: 8px; box-sizing: border-box; margin-bottom: 8px; font-size: 14px; }
+        input:focus { outline: none; border-color: var(--primary); }
+        
+        .btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+        .btn { width: 100%; padding: 12px; border-radius: 8px; font-weight: bold; border: none; cursor: pointer; font-size: 13px; text-transform: uppercase; transition: background 0.2s; }
+        .btn:active { transform: scale(0.98); }
+        
+        .btn-reg { background: var(--primary); color: white; }
+        .btn-del { background: rgba(244, 67, 54, 0.2); color: var(--danger); border: 1px solid var(--danger); }
+        .btn-save { background: var(--success); color: white; font-size: 16px; padding: 15px; grid-column: 1 / -1; margin-top: 5px; box-shadow: 0 4px 10px rgba(76, 175, 80, 0.3); }
+
+        /* Loading Overlay */
+        #loading-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: var(--dark); z-index: 999; display: flex; justify-content: center; align-items: center; flex-direction: column; }
+        .spinner { border: 4px solid #333; border-top: 4px solid var(--primary); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 15px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+    <div id="loading-overlay">
+        <div class="spinner"></div>
+        <p style="margin:0; color:#aaa; font-size:14px;">Memuat Brain AI & Database...</p>
+        <small id="load-status" style="color:#666; margin-top:5px;">Menghubungkan...</small>
+    </div>
+
+    <div id="camera-container">
+        <video id="video" autoplay muted playsinline></video>
+        <canvas id="overlay"></canvas>
+    </div>
+
+    <div id="controls">
+        <div class="info-card">
+            <div>Hadir: <span id="count">0</span></div>
+            <div id="locationText">GPS: Mencari Sinyal...</div>
+        </div>
+
+        <div class="section-title">Manajemen Database Wajah (Lokal HP)</div>
+        <input type="text" id="regName" placeholder="Nama Lengkap Personel (utk didaftarkan)">
+        
+        <div class="btn-group">
+            <button class="btn btn-reg" onclick="registerFace()">Daftarkan Wajah</button>
+            <button class="btn btn-del" onclick="clearDatabase()">Kosongkan DB</button>
+        </div>
+
+        <div class="section-title">Konfigurasi Laporan (Watermark)</div>
+        <input type="text" id="opdInput" value="BKPSDM SBB">
+        <input type="text" id="logoInput" value="https://via.placeholder.com/100" placeholder="img/Kab-sbb">
+
+        <button class="btn btn-save" onclick="captureAndSave()">SIMPAN FOTO & LOG HADIR</button>
+        <div style="height:20px;"></div> </div>
+
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('overlay');
+        const countEl = document.getElementById('count');
+        const locationEl = document.getElementById('locationText');
+        const loadStatusEl = document.getElementById('load-status');
+        
+        let db;
+        const DB_NAME = "FaceAuthDB";
+        const DB_VERSION = 1;
+        const STORE_NAME = "wajah_personel";
+
+        let labeledFaceDescriptors = []; 
+        let faceMatcher = null;
+        let currentCoords = "GPS Tidak Aktif";
+
+        // --- 1. Inisialisasi: Load AI & Database ---
+        async function init() {
+            try {
+                loadStatusEl.innerText = "Memuat Model AI (TinyFace)...";
+                const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
+                await Promise.all([
+                    face-api.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+                    face-api.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+                    face-api.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+                ]);
+
+                loadStatusEl.innerText = "Membuka Database Lokal...";
+                await openDatabase();
+                await loadDescriptorsFromDB();
+
+                document.getElementById('loading-overlay').style.display = 'none';
+                startCamera();
+            } catch (e) {
+                alert("Gagal Inisialisasi: " + e);
+                loadStatusEl.innerText = "Error: " + e.message;
+            }
+        }
+
+        // --- 2. Fungsi IndexedDB (Penyimpanan Permanen) ---
+        function openDatabase() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(DB_NAME, DB_VERSION);
+                request.onerror = (event) => reject("Database error: " + event.target.error);
+                request.onupgradeneeded = (event) => {
+                    db = event.target.result;
+                    if (!db.objectStoreNames.contains(STORE_NAME)) {
+                        db.createObjectStore(STORE_NAME, { keyPath: "nama" });
+                    }
+                };
+                request.onsuccess = (event) => {
+                    db = event.target.result;
+                    resolve(db);
+                };
+            });
+        }
+
+        async function saveToDB(nama, descriptor) {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([STORE_NAME], "readwrite");
+                const store = transaction.objectStore(STORE_NAME);
+                // Konversi Float32Array ke Array biasa agar bisa disimpan IndexedDB
+                const request = store.put({ nama: nama, descriptor: Array.from(descriptor) });
+                request.onsuccess = () => resolve();
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        async function loadDescriptorsFromDB() {
+            return new Promise((resolve) => {
+                const transaction = db.transaction([STORE_NAME], "readonly");
+                const store = transaction.objectStore(STORE_NAME);
+                const request = store.getAll();
+
+                request.onsuccess = () => {
+                    const data = request.result;
+                    labeledFaceDescriptors = data.map(item => {
+                        // Konversi kembali Array ke Float32Array
+                        return new face-api.LabeledFaceDescriptors(item.nama, [new Float32Array(item.descriptor)]);
+                    });
+                    
+                    if (labeledFaceDescriptors.length > 0) {
+                        faceMatcher = new face-api.FaceMatcher(labeledFaceDescriptors, 0.6); // Threshold 60%
+                    }
+                    console.log(`Loaded ${labeledFaceDescriptors.length} faces from DB`);
+                    resolve();
+                };
+            });
+        }
+
+        function clearDatabase() {
+            if(!confirm("Hapus semua data wajah terdaftar di HP ini?")) return;
+            const transaction = db.transaction([STORE_NAME], "readwrite");
+            const store = transaction.objectStore(STORE_NAME);
+            const request = store.clear();
+            request.onsuccess = () => {
+                alert("Database dibersihkan. Refresh halaman.");
+                location.reload();
+            };
+        }
+
+        // --- 3. Fitur Utama (Kamera & Deteksi) ---
+        function startCamera() {
+            // Optimasi kamera belakang untuk Android
+            navigator.mediaDevices.getUserMedia({ 
+                video: { facingMode: "environment", width: { ideal: 640 }, height: { ideal: 480 } } 
+            })
+            .then(stream => { video.srcObject = stream; })
+            .catch(err => alert("Kamera Error: " + err + ". Pastikan pakai HTTPS."));
+        }
+
+        // Loop Verifikasi Utama
+        video.addEventListener('play', () => {
+            const displaySize = { width: video.clientWidth, height: video.clientHeight };
+            face-api.matchDimensions(canvas, displaySize);
+
+            setInterval(async () => {
+                if (video.paused || video.ended) return;
+
+                const detections = await face-api.detectAllFaces(video, new face-api.TinyFaceDetectorOptions())
+                    .withFaceLandmarks()
+                    .withFaceDescriptors();
+                
+                const resizedDetections = face-api.resizeResults(detections, displaySize);
+                canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+
+                countEl.innerText = detections.length;
+
+                resizedDetections.forEach(detection => {
+                    let label = "Mendaftar..."; // Default jika DB kosong
+                    let color = var(--danger);
+
+                    if (faceMatcher) {
+                        const bestMatch = faceMatcher.findBestMatch(detection.descriptor);
+                        label = bestMatch.toString();
+                        // Ganti warna kotak jika dikenali
+                        color = label.includes("unknown") ? var(--danger) : var(--success);
+                    }
+                    
+                    const drawBox = new face-api.draw.DrawBox(detection.detection.box, { 
+                        label: label, 
+                        boxColor: color,
+                        drawLabelOptions: { fontColor: 'white', fontSize: 14, padding: 4 }
+                    });
+                    drawBox.draw(canvas);
+                });
+            }, 600); // Interval deteksi (ms), sesuaikan dengan spek HP
+        });
+
+        // --- 4. Tombol Aksi ---
+        async function registerFace() {
+            const name = document.getElementById('regName').value.trim();
+            if (!name) return alert("Ketik nama personel dulu!");
+
+            document.getElementById('loading-overlay').style.display = 'flex';
+            loadStatusEl.innerText = `Menganalisis wajah ${name}...`;
+
+            // Deteksi dengan akurasi tinggi untuk pendaftaran
+            const detections = await face-api.detectSingleFace(video, new face-api.TinyFaceDetectorOptions())
+                .withFaceLandmarks()
+                .withFaceDescriptor();
+
+            if (detections) {
+                try {
+                    // 1. Simpan ke Database Permanen HP
+                    await saveToDB(name, detections.descriptor);
+                    
+                    // 2. Update FaceMatcher aktif tanpa refresh
+                    labeledFaceDescriptors.push(new face-api.LabeledFaceDescriptors(name, [detections.descriptor]));
+                    faceMatcher = new face-api.FaceMatcher(labeledFaceDescriptors, 0.6);
+                    
+                    alert(`SUKSES: Wajah ${name} sudah disimpan permanen di HP ini.`);
+                    document.getElementById('regName').value = ""; // Bersihkan input
+                } catch (e) {
+                    alert("Gagal menyimpan ke DB: " + e);
+                }
+            } else {
+                alert("Wajah tidak jelas. Pastikan pencahayaan terang dan wajah menghadap kamera.");
+            }
+            document.getElementById('loading-overlay').style.display = 'none';
+        }
+
+        // --- 5. Laporan & Watermark ---
+        navigator.geolocation.watchPosition(p => {
+            currentCoords = `${p.coords.latitude.toFixed(6)}, ${p.coords.longitude.toFixed(6)}`;
+            locationEl.innerText = "GPS: " + currentCoords;
+        }, null, {enableHighAccuracy:true});
+
+        async function captureAndSave() {
+            const cap = document.createElement('canvas');
+            cap.width = video.videoWidth; cap.height = video.videoHeight;
+            const ctx = cap.getContext('2d');
+            ctx.drawImage(video, 0, 0);
+
+            // Watermark Hitam Transparan
+            ctx.fillStyle = "rgba(0,0,0,0.7)";
+            ctx.fillRect(0, cap.height - 130, cap.width, 130);
+            
+            ctx.fillStyle = "white";
+            ctx.font = "bold 24px Arial";
+            ctx.fillText(document.getElementById('opdInput').value, 30, cap.height - 90);
+            
+            ctx.fillStyle = "#bbb";
+            ctx.font = "18px Arial";
+            ctx.fillText(`Lokasi: ${currentCoords}`, 30, cap.height - 60);
+            
+            ctx.fillStyle = var(--accent);
+            ctx.font = "18px Arial";
+            ctx.fillText(`Waktu: ${new Date().toLocaleString('id-ID')}`, 30, cap.height - 35);
+            ctx.fillText(`Kehadiran Terdeteksi: ${countEl.innerText} Orang`, 30, cap.height - 10);
+
+            // Download JPG ke Android
+            const link = document.createElement('a');
+            link.download = `ABSENSI_AI_${Date.now()}.jpg`;
+            link.href = cap.toDataURL("image/jpeg", 0.9);
+            link.click();
+        }
+
+        // Jalankan sistem
+        init();
+    </script>
+</body>
+</html>
