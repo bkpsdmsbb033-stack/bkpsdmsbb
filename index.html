@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Sistem Laporan Kehadiran - SBB</title>
+    <title>Sistem Laporan Kehadiran Pro - SBB</title>
     
     <script defer src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -15,67 +15,71 @@
         :root { --primary: #2c3e50; --success: #27ae60; --bg: #f4f7f9; }
         body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); display: flex; flex-direction: column; align-items: center; }
 
-        /* AREA LAPORAN PDF */
-        #report-area { 
-            width: 100%; 
-            max-width: 480px; 
-            background: white; 
-            display: flex;
-            flex-direction: column;
-        }
+        #report-area { width: 100%; max-width: 480px; background: white; display: flex; flex-direction: column; }
 
-        .header-kop {
-            display: flex;
-            align-items: center;
-            padding: 18px;
-            background: white;
-            border-bottom: 2px solid #000;
-            gap: 15px;
-        }
+        .header-kop { display: flex; align-items: center; padding: 18px; background: white; border-bottom: 3px solid #000; gap: 15px; }
         .logo-kab { width: 45px; height: 55px; object-fit: contain; }
         .opd-info b { font-size: 15px; color: #111; display: block; text-transform: uppercase; line-height: 1.2; }
         .opd-info span { font-size: 11px; color: #444; font-weight: bold; }
 
-        #photo-container { position: relative; width: 100%; background: #000; line-height: 0; overflow: hidden; }
-        video { width: 100%; display: block; }
+        #photo-container { position: relative; width: 100%; background: #000; line-height: 0; overflow: hidden; min-height: 300px; }
+        video { width: 100%; display: block; transition: filter 0.2s; }
+        .mirror { transform: scaleX(-1); }
+        
         canvas#overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 5; }
         #snapshot-canvas { display: none; width: 100%; }
 
-        .data-footer {
-            padding: 18px;
-            background: white;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            border-top: 1px solid #eee;
-        }
-        
-        .footer-section h4 { 
-            margin: 0 0 8px 0; 
-            font-size: 13px; 
-            color: var(--success); 
-            border-bottom: 1px solid #eee;
-            padding-bottom: 4px;
+        /* Overlay Kontrol Kamera */
+        .cam-controls {
+            position: absolute;
+            bottom: 15px;
+            left: 10px;
+            right: 10px;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            background: rgba(0,0,0,0.4);
+            padding: 10px;
+            border-radius: 8px;
         }
 
-        .info-text { font-size: 11px; color: #333; line-height: 1.5; }
-        .info-text b { color: #000; }
-        #map { width: 100%; height: 90px; margin-top: 8px; border: 1px solid #ddd; border-radius: 4px; }
+        .cam-row { display: flex; align-items: center; gap: 10px; color: white; font-size: 12px; }
+        .cam-row input { flex: 1; accent-color: var(--success); }
+
+        #switch-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 10;
+            background: var(--success);
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: bold;
+        }
+
+        .data-footer { padding: 18px; background: white; display: grid; grid-template-columns: 1fr 1fr; gap: 15px; border-top: 1px solid #eee; }
+        .footer-section h4 { margin: 0 0 8px 0; font-size: 13px; color: var(--success); border-bottom: 1px solid #eee; padding-bottom: 4px; }
+        .info-text { font-size: 10px; color: #333; line-height: 1.4; }
+        #map { width: 100%; height: 100px; margin-top: 8px; border: 1px solid #ddd; border-radius: 4px; }
         .rekap-grid { display: grid; grid-template-columns: 1fr auto; gap: 4px; font-size: 11px; }
 
-        /* PANEL KONTROL */
         .controls { width: 92%; max-width: 480px; margin: 20px 0; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); box-sizing: border-box; }
         .grid-input { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
-        input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 13px; }
-        .btn-main { background: var(--success); color: white; border: none; padding: 18px; width: 100%; border-radius: 10px; font-weight: bold; cursor: pointer; font-size: 1rem; transition: 0.3s; }
-        .btn-main:disabled { background: #ccc; cursor: not-allowed; }
+        input[type="text"], input[type="number"] { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
+        .btn-main { background: var(--success); color: white; border: none; padding: 18px; width: 100%; border-radius: 10px; font-weight: bold; cursor: pointer; }
+        .btn-main:disabled { background: #ccc; }
     </style>
 </head>
 <body onload="startApp()">
 
     <div id="report-area">
         <div class="header-kop">
-            <img src="img/Kab-sbb.png" class="logo-kab" onerror="this.src='https://upload.wikimedia.org/wikipedia/commons/b/b1/Logo_Kabupaten_Seram_Bagian_Barat.png'">
+            <img src="img/Kab-sbb.png" class="logo-kab">
             <div class="opd-info">
                 <b id="opd-name-top">BKPSDM</b>
                 <span>PEMERINTAH KABUPATEN SERAM BAGIAN BARAT</span>
@@ -83,6 +87,17 @@
         </div>
 
         <div id="photo-container">
+            <button id="switch-btn" onclick="toggleCamera()">🔄 GANTI KAMERA</button>
+            
+            <div class="cam-controls">
+                <div class="cam-row">
+                    ☀️ <input type="range" id="bright-range" min="50" max="150" value="100" oninput="applyFilters()">
+                </div>
+                <div id="zoom-area" class="cam-row" style="display: none;">
+                    🔍 <input type="range" id="zoom-range" min="1" max="3" step="0.1" value="1" oninput="applyZoom()">
+                </div>
+            </div>
+
             <video id="video" autoplay muted playsinline></video>
             <canvas id="overlay"></canvas>
             <canvas id="snapshot-canvas"></canvas>
@@ -92,9 +107,9 @@
             <div class="footer-section">
                 <h4>INFORMASI LOKASI</h4>
                 <div class="info-text">
-                    📅 Tanggal: <b id="wm-date">-</b><br>
-                    ⏰ Waktu: <b id="wm-time">-</b><br>
-                    📍 Koordinat: <b id="location-text">Mencari GPS...</b><br>
+                    📅 <b id="wm-date">-</b><br>
+                    ⏰ <b id="wm-time">-</b><br>
+                    📍 <b id="location-text">Mencari GPS...</b><br>
                     <span style="color:var(--success); font-weight:bold" id="gps-accuracy">📡 Mengunci Sinyal...</span>
                 </div>
                 <div id="map"></div>
@@ -110,9 +125,7 @@
                     <span>Tugas:</span> <b id="out-tugas">0</b>
                     <span>Izin Belajar:</span> <b id="out-belajar">0</b>
                 </div>
-                <p style="font-size: 9px; margin-top: 15px; color: #888; font-style: italic;">
-                    * Laporan terverifikasi sistem GPS & Wajah.
-                </p>
+                <p style="font-size: 9px; margin-top: 15px; color: #888; font-style: italic;">* Laporan terverifikasi sistem.</p>
             </div>
         </div>
     </div>
@@ -132,35 +145,80 @@
     <script>
         const video = document.getElementById('video');
         const btnSave = document.getElementById('btn-save');
+        let currentStream = null;
+        let useFrontCamera = true;
         let map, marker;
 
-        function updateTime() {
-            const n = new Date();
-            document.getElementById('wm-time').innerText = n.toLocaleTimeString('id-ID');
-            document.getElementById('wm-date').innerText = n.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+        function applyFilters() {
+            const b = document.getElementById('bright-range').value;
+            video.style.filter = `brightness(${b}%)`;
         }
-        setInterval(updateTime, 1000);
+
+        async function applyZoom() {
+            if (!currentStream) return;
+            const track = currentStream.getVideoTracks()[0];
+            const zoomVal = document.getElementById('zoom-range').value;
+            
+            try {
+                // Hanya bekerja pada browser yang mendukung ImageCapture API (Chrome/Android)
+                await track.applyConstraints({ advanced: [{ zoom: zoomVal }] });
+            } catch (e) {
+                // Fallback: CSS Zoom jika hardware zoom tidak didukung
+                video.style.transform = (useFrontCamera ? "scaleX(-1) " : "") + `scale(${zoomVal})`;
+            }
+        }
 
         async function startApp() {
             try {
-                await faceapi.nets.tinyFaceDetector.loadFromUri('https://raw.githubusercontent.com/vladmandic/face-api/master/model/');
-                const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { facingMode: "environment", width: { ideal: 640 } } 
-                });
-                video.srcObject = stream;
-                video.onloadedmetadata = () => detectFaces();
+                const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
+                await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+                initCamera();
                 initGPS();
-            } catch (err) { alert("Izinkan Kamera & GPS untuk memulai."); }
+                setInterval(() => {
+                    const n = new Date();
+                    document.getElementById('wm-time').innerText = n.toLocaleTimeString('id-ID');
+                    document.getElementById('wm-date').innerText = n.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+                }, 1000);
+            } catch (err) { alert("Error: " + err.message); }
+        }
+
+        async function initCamera() {
+            if (currentStream) currentStream.getTracks().forEach(t => t.stop());
+
+            const constraints = {
+                video: { facingMode: useFrontCamera ? "user" : "environment", width: 640, height: 480 }
+            };
+
+            try {
+                currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+                video.srcObject = currentStream;
+                video.classList.toggle('mirror', useFrontCamera);
+
+                // Cek apakah hardware mendukung zoom
+                const track = currentStream.getVideoTracks()[0];
+                const caps = track.getCapabilities ? track.getCapabilities() : {};
+                document.getElementById('zoom-area').style.display = caps.zoom ? 'flex' : 'none';
+
+                video.onloadedmetadata = detectFaces;
+            } catch (err) { alert("Kamera Error."); }
+        }
+
+        function toggleCamera() {
+            useFrontCamera = !useFrontCamera;
+            document.getElementById('zoom-range').value = 1;
+            initCamera();
         }
 
         async function detectFaces() {
             const canvas = document.getElementById('overlay');
+            const displaySize = { width: video.clientWidth, height: video.clientHeight };
+            faceapi.matchDimensions(canvas, displaySize);
+
             setInterval(async () => {
-                const displaySize = { width: video.offsetWidth, height: video.offsetHeight };
-                faceapi.matchDimensions(canvas, displaySize);
-                const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 128 }));
+                const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions());
                 document.getElementById('out-hadir').innerText = detections.length;
-                canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+                const ctx = canvas.getContext('2d');
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
                 faceapi.draw.drawDetections(canvas, faceapi.resizeResults(detections, displaySize));
             }, 500);
         }
@@ -170,13 +228,11 @@
                 navigator.geolocation.watchPosition(pos => {
                     const { latitude, longitude, accuracy } = pos.coords;
                     document.getElementById('location-text').innerText = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
-                    document.getElementById('gps-accuracy').innerText = `📡 GPS Aktif (Akurasi: ${Math.round(accuracy)}m)`;
-                    
-                    if (accuracy < 150) { // Toleransi akurasi 150 meter
+                    document.getElementById('gps-accuracy').innerText = `📡 Sinyal OK (${Math.round(accuracy)}m)`;
+                    if (accuracy < 150) {
                         btnSave.disabled = false;
                         btnSave.innerText = "💾 TERBITKAN LAPORAN PDF";
                     }
-
                     if (!map) {
                         map = L.map('map', { zoomControl: false, attributionControl: false }).setView([latitude, longitude], 17);
                         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
@@ -185,7 +241,7 @@
                         map.setView([latitude, longitude]);
                         marker.setLatLng([latitude, longitude]);
                     }
-                }, null, { enableHighAccuracy: true, maximumAge: 0 });
+                }, null, { enableHighAccuracy: true });
             }
         }
 
@@ -194,42 +250,38 @@
         }
 
         async function generateFastPDF() {
-            btnSave.innerText = "⚡ MENCETAK PDF...";
+            btnSave.innerText = "⚡ MENCETAK...";
             btnSave.disabled = true;
 
             const area = document.getElementById('report-area');
             const snapCanvas = document.getElementById('snapshot-canvas');
             const opdName = document.getElementById('input-opd').value || "BKPSDM";
-            const dateStr = new Date().toLocaleDateString('id-ID').replace(/\//g, '-');
-
-            // Ambil snapshot video instan
+            
             snapCanvas.width = video.videoWidth;
             snapCanvas.height = video.videoHeight;
-            snapCanvas.getContext('2d').drawImage(video, 0, 0);
+            const ctx = snapCanvas.getContext('2d');
+            
+            // Terapkan filter kecerahan ke snapshot
+            ctx.filter = `brightness(${document.getElementById('bright-range').value}%)`;
+            
+            if (useFrontCamera) {
+                ctx.translate(snapCanvas.width, 0);
+                ctx.scale(-1, 1);
+            }
+            ctx.drawImage(video, 0, 0);
             
             video.style.display = 'none';
             snapCanvas.style.display = 'block';
 
             try {
-                const canvasResult = await html2canvas(area, { 
-                    useCORS: true, 
-                    scale: 1.5,
-                    logging: false,
-                    backgroundColor: "#ffffff"
-                });
-
-                const imgData = canvasResult.toDataURL('image/jpeg', 0.8);
+                const canvasResult = await html2canvas(area, { useCORS: true, scale: 2 });
+                const imgData = canvasResult.toDataURL('image/jpeg', 0.9);
                 const { jsPDF } = window.jspdf;
                 const pdf = new jsPDF('p', 'mm', 'a4');
-                const pdfWidth = pdf.internal.pageSize.getWidth();
-                const pdfHeight = (canvasResult.height * pdfWidth) / canvasResult.width;
-                
-                pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
-                pdf.save(`Laporan_${opdName}_${dateStr}.pdf`);
-                
-            } catch (err) {
-                alert("Gagal membuat PDF.");
-            } finally {
+                pdf.addImage(imgData, 'JPEG', 0, 0, 210, (canvasResult.height * 210) / canvasResult.width);
+                pdf.save(`Laporan_${opdName}.pdf`);
+            } catch (err) { alert("Gagal PDF"); }
+            finally {
                 video.style.display = 'block';
                 snapCanvas.style.display = 'none';
                 btnSave.innerText = "💾 TERBITKAN LAPORAN PDF";
