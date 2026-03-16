@@ -3,295 +3,239 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AI Face Verify Pro - Android DB</title>
+    <title>Sistem Laporan Kehadiran - SBB</title>
+    
     <script defer src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
     <style>
-        :root { --primary: #2196F3; --success: #4CAF50; --dark: #121212; --accent: #FFC107; --danger: #f44336; }
-        body { font-family: 'Roboto', sans-serif; margin: 0; background: var(--dark); color: white; display: flex; flex-direction: column; align-items: center; overflow-x: hidden; }
-        
-        /* Camera UI */
-        #camera-container { position: relative; width: 100vw; height: 55vh; background: #000; border-bottom: 2px solid var(--primary); }
-        video, canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
+        :root { --primary: #2c3e50; --success: #27ae60; --bg: #f4f7f9; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); display: flex; flex-direction: column; align-items: center; }
 
-        /* Controls UI */
-        #controls { width: 100%; padding: 15px; box-sizing: border-box; background: #1e1e1e; border-radius: 20px 20px 0 0; margin-top: -20px; z-index: 10; flex: 1; overflow-y: auto; pb: 100px; }
-        .section-title { font-size: 11px; color: var(--accent); font-weight: bold; margin: 10px 0 5px 0; text-transform: uppercase; letter-spacing: 1px; }
-        
-        .info-card { background: #2d2d2d; padding: 10px; border-radius: 10px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #444; }
-        .info-card span { font-weight: bold; color: var(--success); font-size: 1.2em; }
-        #locationText { font-size: 10px; color: #aaa; text-align: right; }
+        /* AREA LAPORAN PDF */
+        #report-area { 
+            width: 100%; 
+            max-width: 480px; 
+            background: white; 
+            display: flex;
+            flex-direction: column;
+        }
 
-        input { width: 100%; background: #333; border: 1px solid #444; color: white; padding: 12px; border-radius: 8px; box-sizing: border-box; margin-bottom: 8px; font-size: 14px; }
-        input:focus { outline: none; border-color: var(--primary); }
-        
-        .btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
-        .btn { width: 100%; padding: 12px; border-radius: 8px; font-weight: bold; border: none; cursor: pointer; font-size: 13px; text-transform: uppercase; transition: background 0.2s; }
-        .btn:active { transform: scale(0.98); }
-        
-        .btn-reg { background: var(--primary); color: white; }
-        .btn-del { background: rgba(244, 67, 54, 0.2); color: var(--danger); border: 1px solid var(--danger); }
-        .btn-save { background: var(--success); color: white; font-size: 16px; padding: 15px; grid-column: 1 / -1; margin-top: 5px; box-shadow: 0 4px 10px rgba(76, 175, 80, 0.3); }
+        .header-kop {
+            display: flex;
+            align-items: center;
+            padding: 18px;
+            background: white;
+            border-bottom: 2px solid #000;
+            gap: 15px;
+        }
+        .logo-kab { width: 45px; height: 55px; object-fit: contain; }
+        .opd-info b { font-size: 15px; color: #111; display: block; text-transform: uppercase; line-height: 1.2; }
+        .opd-info span { font-size: 11px; color: #444; font-weight: bold; }
 
-        /* Loading Overlay */
-        #loading-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: var(--dark); z-index: 999; display: flex; justify-content: center; align-items: center; flex-direction: column; }
-        .spinner { border: 4px solid #333; border-top: 4px solid var(--primary); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 15px; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        #photo-container { position: relative; width: 100%; background: #000; line-height: 0; overflow: hidden; }
+        video { width: 100%; display: block; }
+        canvas#overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 5; }
+        #snapshot-canvas { display: none; width: 100%; }
+
+        .data-footer {
+            padding: 18px;
+            background: white;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            border-top: 1px solid #eee;
+        }
+        
+        .footer-section h4 { 
+            margin: 0 0 8px 0; 
+            font-size: 13px; 
+            color: var(--success); 
+            border-bottom: 1px solid #eee;
+            padding-bottom: 4px;
+        }
+
+        .info-text { font-size: 11px; color: #333; line-height: 1.5; }
+        .info-text b { color: #000; }
+        #map { width: 100%; height: 90px; margin-top: 8px; border: 1px solid #ddd; border-radius: 4px; }
+        .rekap-grid { display: grid; grid-template-columns: 1fr auto; gap: 4px; font-size: 11px; }
+
+        /* PANEL KONTROL */
+        .controls { width: 92%; max-width: 480px; margin: 20px 0; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); box-sizing: border-box; }
+        .grid-input { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+        input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 13px; }
+        .btn-main { background: var(--success); color: white; border: none; padding: 18px; width: 100%; border-radius: 10px; font-weight: bold; cursor: pointer; font-size: 1rem; transition: 0.3s; }
+        .btn-main:disabled { background: #ccc; cursor: not-allowed; }
     </style>
 </head>
-<body>
+<body onload="startApp()">
 
-    <div id="loading-overlay">
-        <div class="spinner"></div>
-        <p style="margin:0; color:#aaa; font-size:14px;">Memuat Brain AI & Database...</p>
-        <small id="load-status" style="color:#666; margin-top:5px;">Menghubungkan...</small>
-    </div>
-
-    <div id="camera-container">
-        <video id="video" autoplay muted playsinline></video>
-        <canvas id="overlay"></canvas>
-    </div>
-
-    <div id="controls">
-        <div class="info-card">
-            <div>Hadir: <span id="count">0</span></div>
-            <div id="locationText">GPS: Mencari Sinyal...</div>
+    <div id="report-area">
+        <div class="header-kop">
+            <img src="img/Kab-sbb.png" class="logo-kab" onerror="this.src='https://upload.wikimedia.org/wikipedia/commons/b/b1/Logo_Kabupaten_Seram_Bagian_Barat.png'">
+            <div class="opd-info">
+                <b id="opd-name-top">BKPSDM</b>
+                <span>PEMERINTAH KABUPATEN SERAM BAGIAN BARAT</span>
+            </div>
         </div>
 
-        <div class="section-title">Manajemen Database Wajah (Lokal HP)</div>
-        <input type="text" id="regName" placeholder="Nama Lengkap Personel (utk didaftarkan)">
-        
-        <div class="btn-group">
-            <button class="btn btn-reg" onclick="registerFace()">Daftarkan Wajah</button>
-            <button class="btn btn-del" onclick="clearDatabase()">Kosongkan DB</button>
+        <div id="photo-container">
+            <video id="video" autoplay muted playsinline></video>
+            <canvas id="overlay"></canvas>
+            <canvas id="snapshot-canvas"></canvas>
         </div>
 
-        <div class="section-title">Konfigurasi Laporan (Watermark)</div>
-        <input type="text" id="opdInput" value="BKPSDM SBB">
-        <input type="text" id="logoInput" value="https://via.placeholder.com/100" placeholder="img/Kab-sbb">
+        <div class="data-footer">
+            <div class="footer-section">
+                <h4>INFORMASI LOKASI</h4>
+                <div class="info-text">
+                    📅 Tanggal: <b id="wm-date">-</b><br>
+                    ⏰ Waktu: <b id="wm-time">-</b><br>
+                    📍 Koordinat: <b id="location-text">Mencari GPS...</b><br>
+                    <span style="color:var(--success); font-weight:bold" id="gps-accuracy">📡 Mengunci Sinyal...</span>
+                </div>
+                <div id="map"></div>
+            </div>
+            
+            <div class="footer-section">
+                <h4>REKAP KEHADIRAN</h4>
+                <div class="rekap-grid">
+                    <span>Hadir (AI):</span> <b id="out-hadir">0</b>
+                    <span>Cuti:</span> <b id="out-cuti">0</b>
+                    <span>Izin:</span> <b id="out-izin">0</b>
+                    <span>Sakit:</span> <b id="out-sakit">0</b>
+                    <span>Tugas:</span> <b id="out-tugas">0</b>
+                    <span>Izin Belajar:</span> <b id="out-belajar">0</b>
+                </div>
+                <p style="font-size: 9px; margin-top: 15px; color: #888; font-style: italic;">
+                    * Laporan terverifikasi sistem GPS & Wajah.
+                </p>
+            </div>
+        </div>
+    </div>
 
-        <button class="btn btn-save" onclick="captureAndSave()">SIMPAN FOTO & LOG HADIR</button>
-        <div style="height:20px;"></div> </div>
+    <div class="controls">
+        <input type="text" id="input-opd" placeholder="Ketik Nama OPD..." oninput="syncText(this, 'opd-name-top')" style="margin-bottom:12px;">
+        <div class="grid-input">
+            <input type="number" placeholder="Cuti" oninput="syncText(this, 'out-cuti')">
+            <input type="number" placeholder="Izin" oninput="syncText(this, 'out-izin')">
+            <input type="number" placeholder="Sakit" oninput="syncText(this, 'out-sakit')">
+            <input type="number" placeholder="Tugas" oninput="syncText(this, 'out-tugas')">
+            <input type="number" placeholder="Izin Belajar" oninput="syncText(this, 'out-belajar')" style="grid-column: span 2;">
+        </div>
+        <button class="btn-main" id="btn-save" onclick="generateFastPDF()" disabled>⌛ MENGUNCI LOKASI...</button>
+    </div>
 
     <script>
         const video = document.getElementById('video');
-        const canvas = document.getElementById('overlay');
-        const countEl = document.getElementById('count');
-        const locationEl = document.getElementById('locationText');
-        const loadStatusEl = document.getElementById('load-status');
-        
-        let db;
-        const DB_NAME = "FaceAuthDB";
-        const DB_VERSION = 1;
-        const STORE_NAME = "wajah_personel";
+        const btnSave = document.getElementById('btn-save');
+        let map, marker;
 
-        let labeledFaceDescriptors = []; 
-        let faceMatcher = null;
-        let currentCoords = "GPS Tidak Aktif";
+        function updateTime() {
+            const n = new Date();
+            document.getElementById('wm-time').innerText = n.toLocaleTimeString('id-ID');
+            document.getElementById('wm-date').innerText = n.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+        }
+        setInterval(updateTime, 1000);
 
-        // --- 1. Inisialisasi: Load AI & Database ---
-        async function init() {
+        async function startApp() {
             try {
-                loadStatusEl.innerText = "Memuat Model AI (TinyFace)...";
-                const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
-                await Promise.all([
-                    face-api.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-                    face-api.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-                    face-api.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
-                ]);
-
-                loadStatusEl.innerText = "Membuka Database Lokal...";
-                await openDatabase();
-                await loadDescriptorsFromDB();
-
-                document.getElementById('loading-overlay').style.display = 'none';
-                startCamera();
-            } catch (e) {
-                alert("Gagal Inisialisasi: " + e);
-                loadStatusEl.innerText = "Error: " + e.message;
-            }
-        }
-
-        // --- 2. Fungsi IndexedDB (Penyimpanan Permanen) ---
-        function openDatabase() {
-            return new Promise((resolve, reject) => {
-                const request = indexedDB.open(DB_NAME, DB_VERSION);
-                request.onerror = (event) => reject("Database error: " + event.target.error);
-                request.onupgradeneeded = (event) => {
-                    db = event.target.result;
-                    if (!db.objectStoreNames.contains(STORE_NAME)) {
-                        db.createObjectStore(STORE_NAME, { keyPath: "nama" });
-                    }
-                };
-                request.onsuccess = (event) => {
-                    db = event.target.result;
-                    resolve(db);
-                };
-            });
-        }
-
-        async function saveToDB(nama, descriptor) {
-            return new Promise((resolve, reject) => {
-                const transaction = db.transaction([STORE_NAME], "readwrite");
-                const store = transaction.objectStore(STORE_NAME);
-                // Konversi Float32Array ke Array biasa agar bisa disimpan IndexedDB
-                const request = store.put({ nama: nama, descriptor: Array.from(descriptor) });
-                request.onsuccess = () => resolve();
-                request.onerror = () => reject(request.error);
-            });
-        }
-
-        async function loadDescriptorsFromDB() {
-            return new Promise((resolve) => {
-                const transaction = db.transaction([STORE_NAME], "readonly");
-                const store = transaction.objectStore(STORE_NAME);
-                const request = store.getAll();
-
-                request.onsuccess = () => {
-                    const data = request.result;
-                    labeledFaceDescriptors = data.map(item => {
-                        // Konversi kembali Array ke Float32Array
-                        return new face-api.LabeledFaceDescriptors(item.nama, [new Float32Array(item.descriptor)]);
-                    });
-                    
-                    if (labeledFaceDescriptors.length > 0) {
-                        faceMatcher = new face-api.FaceMatcher(labeledFaceDescriptors, 0.6); // Threshold 60%
-                    }
-                    console.log(`Loaded ${labeledFaceDescriptors.length} faces from DB`);
-                    resolve();
-                };
-            });
-        }
-
-        function clearDatabase() {
-            if(!confirm("Hapus semua data wajah terdaftar di HP ini?")) return;
-            const transaction = db.transaction([STORE_NAME], "readwrite");
-            const store = transaction.objectStore(STORE_NAME);
-            const request = store.clear();
-            request.onsuccess = () => {
-                alert("Database dibersihkan. Refresh halaman.");
-                location.reload();
-            };
-        }
-
-        // --- 3. Fitur Utama (Kamera & Deteksi) ---
-        function startCamera() {
-            // Optimasi kamera belakang untuk Android
-            navigator.mediaDevices.getUserMedia({ 
-                video: { facingMode: "environment", width: { ideal: 640 }, height: { ideal: 480 } } 
-            })
-            .then(stream => { video.srcObject = stream; })
-            .catch(err => alert("Kamera Error: " + err + ". Pastikan pakai HTTPS."));
-        }
-
-        // Loop Verifikasi Utama
-        video.addEventListener('play', () => {
-            const displaySize = { width: video.clientWidth, height: video.clientHeight };
-            face-api.matchDimensions(canvas, displaySize);
-
-            setInterval(async () => {
-                if (video.paused || video.ended) return;
-
-                const detections = await face-api.detectAllFaces(video, new face-api.TinyFaceDetectorOptions())
-                    .withFaceLandmarks()
-                    .withFaceDescriptors();
-                
-                const resizedDetections = face-api.resizeResults(detections, displaySize);
-                canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
-
-                countEl.innerText = detections.length;
-
-                resizedDetections.forEach(detection => {
-                    let label = "Mendaftar..."; // Default jika DB kosong
-                    let color = var(--danger);
-
-                    if (faceMatcher) {
-                        const bestMatch = faceMatcher.findBestMatch(detection.descriptor);
-                        label = bestMatch.toString();
-                        // Ganti warna kotak jika dikenali
-                        color = label.includes("unknown") ? var(--danger) : var(--success);
-                    }
-                    
-                    const drawBox = new face-api.draw.DrawBox(detection.detection.box, { 
-                        label: label, 
-                        boxColor: color,
-                        drawLabelOptions: { fontColor: 'white', fontSize: 14, padding: 4 }
-                    });
-                    drawBox.draw(canvas);
+                await faceapi.nets.tinyFaceDetector.loadFromUri('https://raw.githubusercontent.com/vladmandic/face-api/master/model/');
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: "environment", width: { ideal: 640 } } 
                 });
-            }, 600); // Interval deteksi (ms), sesuaikan dengan spek HP
-        });
+                video.srcObject = stream;
+                video.onloadedmetadata = () => detectFaces();
+                initGPS();
+            } catch (err) { alert("Izinkan Kamera & GPS untuk memulai."); }
+        }
 
-        // --- 4. Tombol Aksi ---
-        async function registerFace() {
-            const name = document.getElementById('regName').value.trim();
-            if (!name) return alert("Ketik nama personel dulu!");
+        async function detectFaces() {
+            const canvas = document.getElementById('overlay');
+            setInterval(async () => {
+                const displaySize = { width: video.offsetWidth, height: video.offsetHeight };
+                faceapi.matchDimensions(canvas, displaySize);
+                const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 128 }));
+                document.getElementById('out-hadir').innerText = detections.length;
+                canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+                faceapi.draw.drawDetections(canvas, faceapi.resizeResults(detections, displaySize));
+            }, 500);
+        }
 
-            document.getElementById('loading-overlay').style.display = 'flex';
-            loadStatusEl.innerText = `Menganalisis wajah ${name}...`;
-
-            // Deteksi dengan akurasi tinggi untuk pendaftaran
-            const detections = await face-api.detectSingleFace(video, new face-api.TinyFaceDetectorOptions())
-                .withFaceLandmarks()
-                .withFaceDescriptor();
-
-            if (detections) {
-                try {
-                    // 1. Simpan ke Database Permanen HP
-                    await saveToDB(name, detections.descriptor);
+        function initGPS() {
+            if (navigator.geolocation) {
+                navigator.geolocation.watchPosition(pos => {
+                    const { latitude, longitude, accuracy } = pos.coords;
+                    document.getElementById('location-text').innerText = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+                    document.getElementById('gps-accuracy').innerText = `📡 GPS Aktif (Akurasi: ${Math.round(accuracy)}m)`;
                     
-                    // 2. Update FaceMatcher aktif tanpa refresh
-                    labeledFaceDescriptors.push(new face-api.LabeledFaceDescriptors(name, [detections.descriptor]));
-                    faceMatcher = new face-api.FaceMatcher(labeledFaceDescriptors, 0.6);
-                    
-                    alert(`SUKSES: Wajah ${name} sudah disimpan permanen di HP ini.`);
-                    document.getElementById('regName').value = ""; // Bersihkan input
-                } catch (e) {
-                    alert("Gagal menyimpan ke DB: " + e);
-                }
-            } else {
-                alert("Wajah tidak jelas. Pastikan pencahayaan terang dan wajah menghadap kamera.");
+                    if (accuracy < 150) { // Toleransi akurasi 150 meter
+                        btnSave.disabled = false;
+                        btnSave.innerText = "💾 TERBITKAN LAPORAN PDF";
+                    }
+
+                    if (!map) {
+                        map = L.map('map', { zoomControl: false, attributionControl: false }).setView([latitude, longitude], 17);
+                        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+                        marker = L.marker([latitude, longitude]).addTo(map);
+                    } else {
+                        map.setView([latitude, longitude]);
+                        marker.setLatLng([latitude, longitude]);
+                    }
+                }, null, { enableHighAccuracy: true, maximumAge: 0 });
             }
-            document.getElementById('loading-overlay').style.display = 'none';
         }
 
-        // --- 5. Laporan & Watermark ---
-        navigator.geolocation.watchPosition(p => {
-            currentCoords = `${p.coords.latitude.toFixed(6)}, ${p.coords.longitude.toFixed(6)}`;
-            locationEl.innerText = "GPS: " + currentCoords;
-        }, null, {enableHighAccuracy:true});
-
-        async function captureAndSave() {
-            const cap = document.createElement('canvas');
-            cap.width = video.videoWidth; cap.height = video.videoHeight;
-            const ctx = cap.getContext('2d');
-            ctx.drawImage(video, 0, 0);
-
-            // Watermark Hitam Transparan
-            ctx.fillStyle = "rgba(0,0,0,0.7)";
-            ctx.fillRect(0, cap.height - 130, cap.width, 130);
-            
-            ctx.fillStyle = "white";
-            ctx.font = "bold 24px Arial";
-            ctx.fillText(document.getElementById('opdInput').value, 30, cap.height - 90);
-            
-            ctx.fillStyle = "#bbb";
-            ctx.font = "18px Arial";
-            ctx.fillText(`Lokasi: ${currentCoords}`, 30, cap.height - 60);
-            
-            ctx.fillStyle = var(--accent);
-            ctx.font = "18px Arial";
-            ctx.fillText(`Waktu: ${new Date().toLocaleString('id-ID')}`, 30, cap.height - 35);
-            ctx.fillText(`Kehadiran Terdeteksi: ${countEl.innerText} Orang`, 30, cap.height - 10);
-
-            // Download JPG ke Android
-            const link = document.createElement('a');
-            link.download = `ABSENSI_AI_${Date.now()}.jpg`;
-            link.href = cap.toDataURL("image/jpeg", 0.9);
-            link.click();
+        function syncText(el, id) { 
+            document.getElementById(id).innerText = el.value.toUpperCase() || (id.includes('opd') ? 'BKPSDM' : '0'); 
         }
 
-        // Jalankan sistem
-        init();
+        async function generateFastPDF() {
+            btnSave.innerText = "⚡ MENCETAK PDF...";
+            btnSave.disabled = true;
+
+            const area = document.getElementById('report-area');
+            const snapCanvas = document.getElementById('snapshot-canvas');
+            const opdName = document.getElementById('input-opd').value || "BKPSDM";
+            const dateStr = new Date().toLocaleDateString('id-ID').replace(/\//g, '-');
+
+            // Ambil snapshot video instan
+            snapCanvas.width = video.videoWidth;
+            snapCanvas.height = video.videoHeight;
+            snapCanvas.getContext('2d').drawImage(video, 0, 0);
+            
+            video.style.display = 'none';
+            snapCanvas.style.display = 'block';
+
+            try {
+                const canvasResult = await html2canvas(area, { 
+                    useCORS: true, 
+                    scale: 1.5,
+                    logging: false,
+                    backgroundColor: "#ffffff"
+                });
+
+                const imgData = canvasResult.toDataURL('image/jpeg', 0.8);
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF('p', 'mm', 'a4');
+                const pdfWidth = pdf.internal.pageSize.getWidth();
+                const pdfHeight = (canvasResult.height * pdfWidth) / canvasResult.width;
+                
+                pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
+                pdf.save(`Laporan_${opdName}_${dateStr}.pdf`);
+                
+            } catch (err) {
+                alert("Gagal membuat PDF.");
+            } finally {
+                video.style.display = 'block';
+                snapCanvas.style.display = 'none';
+                btnSave.innerText = "💾 TERBITKAN LAPORAN PDF";
+                btnSave.disabled = false;
+            }
+        }
     </script>
 </body>
 </html>
